@@ -1,0 +1,172 @@
+
+
+##====================================================================##
+# use 'data_raw.xlsx' file.
+# the following codes demonstrate raw data preprocessing (stereotype dispersion metric).
+# programming language: Python v-3.7.4
+
+import pandas as pd
+import math
+import numpy as np
+from scipy.spatial import distance
+cd DIRECTORY
+##====================================================================##
+
+
+##====================================================================##
+#### Nation aggregate SCM ####
+
+# read data.
+df = pd.read_excel('data_raw.xlsx', sheet_name=0) # raw-nation-scm spreadsheet.
+countrylist = list(set(df['Country'].tolist()))
+
+# relative mean distance.
+K = []
+Density = []
+C_mean = []
+W_mean = []
+for k in countrylist:
+	subset = df.loc[df['Country'] == k]
+	C_centroid = np.mean(subset['Competence'].tolist())
+	W_centroid = np.mean(subset['Warmth'].tolist())
+	euclidean_dist = 0
+	for length,(i,j) in enumerate(zip(subset['Competence'].tolist(),subset['Warmth'].tolist())):
+		euclidean_dist+=math.sqrt ((i - C_centroid)**2 + (j - W_centroid)**2)
+	density = euclidean_dist/length
+	#print (k)
+	#print(length)
+	#print(density)
+	K.append(k)
+	Density.append(density)
+	C_mean.append(C_centroid)
+	W_mean.append(W_centroid)
+df_dense = pd.DataFrame([K, Density, C_mean, W_mean]).transpose()
+df_dense.to_excel('temp.xlsx') 
+# save output (study1_nation_all_group in data_main.xlsx).
+##====================================================================##
+
+
+##====================================================================##
+#### State aggregate SCM ####
+
+# read data.
+df = pd.read_excel('data_raw.xlsx',sheetname = 3) # raw_individual_scm spreadsheet.
+count_df = df.groupby('Q2').count() # frequency table of how many data we have for each state under each SCM group.
+
+# State level steretoype dispersion: mean warmth and competence for each ethnic group across PPs in the same state.
+group_mean_scm = []
+for i in range(1,51):
+	state_df = df.loc[df['Q2'] == i]
+	sliced_state_df = state_df.iloc[:,2:90]
+	scm_state_df = sliced_state_df.groupby(np.arange(len(sliced_state_df.columns))//2, axis=1).mean()
+	group_mean_scm.append(scm_state_df.mean())
+group_mean_scm = pd.DataFrame(group_mean_scm)
+# manually change to long format and save.
+statelist = list(set(df['State'].tolist())) 
+# save output (raw_state_agg_scm in data_raw.xlsx).
+
+# relative mean distance.
+K = []
+Density = []
+C_range = []
+W_range = []
+for k in statelist:
+	subset = df.loc[df['State'] == k]
+	C_centroid = np.mean(subset['Competence'].tolist())
+	W_centroid = np.mean(subset['Warmth'].tolist())
+	euclidean_dist = 0
+	for length,(i,j) in enumerate(zip(subset['Competence'].tolist(),subset['Warmth'].tolist())):
+		euclidean_dist+=math.sqrt ((i - C_centroid)**2 + (j - W_centroid)**2)
+	density = euclidean_dist/length
+	#print (k)
+	#print(length)
+	#print(density)
+	K.append(k)
+	Density.append(density)
+df_dense1 = pd.DataFrame([K, Density]).transpose()
+
+# organize metrics.
+shape_df = pd.concat([df_dense1[0], df_dense2[1]], axis=1)
+shape_df.columns = ['State','Meandist']
+
+# State level covariates: index for each group across PPs in the same state.
+submacro_state_df = []
+for i in range(1,51):
+	state_df = df.loc[df['Q2'] == i]
+	sliced_state_df = state_df.iloc[:,90:96]
+	submacro_state_df.append(sliced_state_df.mean())
+submacro_state_df = pd.DataFrame(submacro_state_df)
+submacro_state_df.columns = ['unequal', 'diverse', 'tight', 'satisfied', 'frequentcontact', 'sameraceneighbor']
+
+# combine.
+combine_scm_submacro = pd.concat([shape_df,submacro_state_df],axis=1) 
+# save output (study2_state_agg in data_main.xlsx).
+##====================================================================##
+
+
+##====================================================================##
+#### State individual SCM ####
+
+# read data.
+df = pd.read_excel('data_raw.xlsx',sheetname = 3) # raw_individual_scm spreadsheet.
+
+# individual level: mean warmth and competence for each group for each P.
+individual_df = pd.DataFrame()
+for i in range(1,51):
+	state_df = df.loc[df['Q2'] == i]
+	sliced_state_df = state_df.iloc[:,2:90]
+	scm_state_df = sliced_state_df.groupby(np.arange(len(sliced_state_df.columns))//2, axis=1).mean()
+	macro_state_df = state_df.iloc[:,90:111]
+	combined = pd.concat([state_df['Q2'], scm_state_df, macro_state_df], axis=1)
+	individual_df =  individual_df.append(combined)
+
+# export to spreadsheet individual-level data, change labels manually, and re-organize dataset.
+individual_df = pd.read_excel('test.xlsx',sheetname = 7)
+individual_scm = individual_df.iloc[:,0:46]
+
+# relative mean distance.
+K = []
+Density = []
+State = []
+wmean=[]
+cmean=[]
+for k in individual_scm['ID'].tolist():
+	subset = individual_scm.loc[individual_scm['ID'] == k]
+	c_list = subset.iloc[[0],[3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45]].transpose().iloc[:,0].tolist()
+	w_list = subset.iloc[[0],[2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44]].transpose().iloc[:,0].tolist()	
+	
+	C_centroid = np.mean(c_list)
+	W_centroid = np.mean(w_list)
+	euclidean_dist = 0
+	for length,(i,j) in enumerate(zip(c_list,w_list)):
+		euclidean_dist+=math.sqrt ((i - C_centroid)**2 + (j - W_centroid)**2)
+	density = euclidean_dist/length
+	#print (k)
+	#print(length)
+	#print(density)
+	K.append(k)
+	State.extend(subset['State'].tolist())
+	Density.append(density)
+	wmean.append(W_centroid)
+	cmean.append(C_centroid)
+df_dense1 = pd.DataFrame([K, State, Density, wmean, cmean]).transpose()
+
+# combine dataset: create scm shape matrix.
+shape_df = pd.concat([df_dense1[0], df_dense1[1], df_dense1[2],axis=1)
+shape_df.columns = ['ID', 'State','Meandist']
+
+# combine submacro data.
+submacro_state_df = individual_df.iloc[:,46:52]
+submacro_state_df.columns = ['unequal', 'diverse', 'tight', 'satisfied', 'frequentcontact', 'sameraceneighbor']
+
+# combine submacro and scm.
+combine_scm_submacro = pd.concat([shape_df,submacro_state_df],axis=1)
+# add individual covariates, manually.
+# save output (study2_individual in data_main.xlsx).
+##====================================================================##
+
+
+##====================================================================##
+#### Longitudinal SCM ####
+# for non-programmers, we demonstrate diversity calculation and stereotype dispersion in excel functions with this dataset.
+# see details in excel spread sheet (raw_longitudinal_Herfindahl, raw_longitudinal_Dispersion).

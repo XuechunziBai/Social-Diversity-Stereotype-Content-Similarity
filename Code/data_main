@@ -1,0 +1,171 @@
+
+
+##====================================================================##
+# use 'data_main.xlsx' file.
+# the following codes demonstrate main analysis (see manuscript Study1 to Study3).
+# programming langauge: R V-3.6.1
+
+setwd DIRECTORY
+library(ppcor)
+library(data.table)
+library(lme4)
+library(lavaan)
+##====================================================================##
+
+
+##====================================================================##
+#### Study 1 ####
+
+data11 <- read.csv("test.csv") # study1_nation_all_group spreadsheet in data_main.xlsx.
+# pearson cor.
+cor.test(data11$MeanDist, data11$Alesina_ethnic)
+# partial cor.
+newdata <- subset(data11, select=c(MeanDist,Alesina_ethnic,GINI,GDP))
+pcor(newdata, method='pearson')
+
+data12 <- read.csv("test.csv") # study1_nation_ethnic_only spreadsheet in data_main.xlsx.
+# pearson cor.
+cor.test(data12$ethniconly, data12$Alesina_ethnic)
+# partial cor.
+newdata <- subset(data12, select=c(ethniconly,Alesina_ethnic,GINI,GDP))
+pcor(newdata, method='pearson')
+##====================================================================##
+
+
+##====================================================================##
+#### Study 2 ####
+
+data2 <- read.csv('test.csv') # study2_individual spreadsheet in data_main.xlsx.
+
+# transform data type.
+dt2 = setDT(data2)
+
+dt2[, ID := as.factor(ID)]
+dt2[, State := as.factor(State)]
+dt2 = dt2[gender != 3]
+dt2[, gender := factor(gender)]
+contrasts(dt2$gender) = c(-0.5, 0.5) #male, female
+dt2[, ancestry_first := factor(ancestry_first)]
+dt2[, marital := factor(marital)]
+dt2[, Herfindahl.ctr := scale(Herfindahl, center = T, scale = F)]
+dt2[, subj_diverse.ctr := scale(subj_diverse, center = T, scale = F)]
+dt2[, GDP.ctr := scale(GDP, center = T, scale = F)]
+dt2[, GINI.ctr := scale(GINI, center = T, scale = F)]
+dt2[, age.ctr := scale(age, center = T, scale = F)]
+dt2[, education.ctr := scale(education, center = T, scale = F)]
+dt2[, ladder.ctr := scale(ladder, center = T, scale = F)]
+dt2[, frequentcontact.ctr := scale(frequentcontact, center = T, scale = F)]
+dt2[, income.ctr := scale(income, center = T, scale = F)]
+dt2[, yearslive.ctr := scale(yearslive, center = T, scale = F)]
+dt2[, livingarea.ctr := scale(livingarea, center = T, scale = F)]
+summary(dt2) # check variable type.
+
+# state-level pearson correlation.
+dt.agg.meandist = dt2[, mean(Meandist), by = State]
+dt.agg.Herfindahl = dt2[, mean(Herfindahl), by = State]
+cor.test(dt.agg.meandist$V1, dt.agg.Herfindahl$V1)
+# no Hawaii.
+cor.test(dt.agg.meandist[-11]$V1, dt.agg.Herfindahl[-11]$V1)
+
+# partial cor, control gini.
+dt.agg.GINI = dt2[, mean(GINI), by = State]
+dt.agg.GDP = dt2[, mean(GDP), by = State]
+newd <- cbind(dt.agg.meandist$V1, dt.agg.Herfindahl$V1, dt.agg.GINI$V1, dt.agg.GDP$V1)
+colnames(newd) <- c("meandist", "Herfindahl", "GINI", "GDP")
+pcor(newd)
+
+# MLM regression: state objective diversity.
+fm1 = lmerTest::lmer(Meandist ~ Herfindahl.ctr 
+								+ GDP.ctr + GINI.ctr + (1|State),data=dt2)
+								
+# MLM regression: individual perceived diversity.
+fm2 = lmerTest::lmer(Meandist ~ subj_diverse.ctr
+								+ age.ctr + gender + education.ctr + ladder.ctr + 
+								+ income.ctr + yearslive.ctr + livingarea.ctr
+								+ frequentcontact.ctr + ancestry_first  +
+								(1 | State),data=dt2)
+								
+fm3 = lmerTest::lmer(Meandist ~ subj_diverse.ctr
+								+ age.ctr + gender + education.ctr + ladder.ctr + 
+								+ income.ctr + yearslive.ctr + livingarea.ctr
+								+ frequentcontact.ctr + ancestry_first  +
+								Herfindahl.ctr + GDP.ctr + GINI.ctr+
+								(1 | State),data=dt2)
+								
+# Baron and Kenny mediation.
+fm4 = lmerTest::lmer(Meandist ~ Herfindahl.ctr + (1 | State), data=dt2)
+fm5 = lmerTest::lmer(subj_diverse.ctr ~ Herfindahl.ctr + (1 | State), data=dt2)
+fm6 = lmerTest::lmer(Meandist ~ Herfindahl.ctr + subj_diverse.ctr + (1 | State), data=dt2)
+
+# indirect path, test significance.
+model <- ' # direct effect
+             Meandist ~ c*Herfindahl
+           # mediator
+             subj_diverse ~ a*Herfindahl
+             Meandist ~ b*subj_diverse
+           # indirect effect (a*b)
+             ab := a*b
+           # total effect
+             total := c + (a*b)'
+lavaanfit <- sem(model, se="bootstrap", data = dt2)
+summary(lavaanfit, ci=TRUE)
+
+# well-being.
+dt2[, meandist.ctr := scale(Meandist, center = T, scale = F)]
+fm7=lmerTest::lmer(satisfied~meandist.ctr+(1|State),data=dt2)
+fm8=lmerTest::lmer(satisfied~subj_diverse.ctr+(1|State),data=dt2)
+fm9=lmerTest::lmer(satisfied~Herfindahl.ctr+(1|State),data=dt2)
+
+##====================================================================##
+
+
+##====================================================================##
+#### Study 3 ####
+
+data3 <- read.csv('test.csv') # study3_longi_mainVariable spreadsheet in data_main.xlsx.
+dt3=setDT(data3)
+dt3[, income.ctr := scale(income, center = T, scale = F)]
+
+# single-level.
+summary(lm(dispersion ~ post * diversity65, data=dt3))
+# multi-level, robust.
+summary(lmerTest::lmer(dispersion ~ post * diversity65 + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+# race, gender, income, robustness.
+summary(lmerTest::lmer(dispersion ~ post * diversity65 + race + sex + income.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+# other robustness.
+# placebo outcomes.
+summary(lmerTest::lmer(brightfutureRescale ~ post * diversity65 + race + sex + income + 
+						(1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(failureRescale ~ post * diversity65 + race + sex + income + 
+						(1 | highschoolstate) + (1 | subjectid), data=dt3))
+# other pre-college diversity.
+summary(lmerTest::lmer(dispersion ~ post * diversity64 + (1 | highschoolstate) + (1 | subjectid), data=dt3)) 
+summary(lmerTest::lmer(dispersion ~ prepost * diversity63 + (1 | highschoolstate) + (1 | subjectid), data=dt3)) 
+summary(lmerTest::lmer(dispersion ~ prepost * diversity62 + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(dispersion ~ prepost * diversity61 + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+# motivation to diverse states.
+# w1q89t: Enough Members Of My Own Ethnic Group To Feel  Comfortable (1 extremely unimportant to 10 extremely important).
+summary(glm(diff_subgroup ~ w1q89t,family=binomial(link='logit'),data=data))
+
+# those who only went to more diverse campus.
+diffsub <- data3[diff_subgroup==1] # diff between pre- and post-college diversity, >0 then assign 1; <0 then assign 0.
+summary(lmerTest::lmer(dispersion ~ diversity65 + (1 | highschoolstate) + (1 | subjectid), data=diffsub))
+
+# wellbeing.
+summary(lmerTest::lmer(enjoylifeRescale ~ post + (1|highschoolstate)+ (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(enjoylifeRescale ~ diversity65 + (1|highschoolstate)+(1 | subjectid), data=dt3))
+summary(lmerTest::lmer(enjoylifeRescale ~ post * diversity65 + (1|highschoolstate)+(1 | subjectid), data=dt3))
+
+summary(lmerTest::lmer(enjoylifeRescale ~ post * diversity65 + race + sex + income + 
+						(1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(enjoylifeRescale ~ post * dispersion + race + sex + income + 
+						(1 | highschoolstate) + (1 | subjectid), data=dt3))						
+summary(lmerTest::lmer(enjoylifeRescale ~ dispersion + (1|highschoolstate)+(1|subjectid),data=dt3))
+
+##====================================================================##
+
+
+##====================================================================##
+# note. 95% confidence interval, use confit() function; p-value see console output.
