@@ -49,3 +49,7 @@ DataVis (py. and xlsx.) are for those who want to replicate drawing the figures 
 You will find more data and analyses to address reviewers' questions.
 
 Most of the results are now in SI, otherwise reflected in the main text.
+
+
+#### Preregistration for study 3 here:
+https://osf.io/be9s5
