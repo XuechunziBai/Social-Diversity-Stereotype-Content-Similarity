@@ -31,7 +31,7 @@ For those who are interested, please see the other two coding repo.
 Suggest open in Notepad or other equivalent to read.
 
 
-#### In Figure folder: 
+#### In FigureA, international scm, and us scm folder: 
 You will find figures in higher resolution.
 
 Figure_main_ms contains figures you see in the manuscript, both colored and grayed.
