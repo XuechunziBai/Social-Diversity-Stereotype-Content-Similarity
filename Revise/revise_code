@@ -1,0 +1,344 @@
+#============================================#
+# positivity stats.
+
+# statistics in R.
+getwd()
+setwd("C:/Users/xb2/Desktop")
+
+# packages.
+library(data.table)
+library(lmerTest)
+
+# read csv.
+alldata <- read.csv('test.csv') # positivity spreadsheet
+colnames(alldata)[1] <- gsub('^...','',colnames(alldata)[1])
+
+# subset country data.
+nationdata <- alldata[ which(alldata$level=='country'),]
+# correlation test.
+cor.test(nationdata$stereotypeDispersion, nationdata$competenceMean)
+cor.test(nationdata$stereotypeDispersion, nationdata$warmthMean)
+
+# subset individual data.
+individualdata <- alldata[ which(alldata$level=='individual'),]
+# correlation test.
+cor.test(individualdata$stereotypeDispersion, individualdata$competenceMean)
+cor.test(individualdata$stereotypeDispersion, individualdata$warmthMean)
+
+# aggregate state data.
+data <- setDT(na.omit(individualdata[c(1:5,7)]))
+dd <- data[, list(mean(stereotypeDispersion), mean(competenceMean), mean(warmthMean)), by='state']
+colnames(dd) <- c("state", "stereotypeDispersion","competenceMean","warmthMean")
+cor.test(dd$stereotypeDispersion, dd$competenceMean)
+cor.test(dd$stereotypeDispersion, dd$warmthMean)
+# random effects.
+summary(lmerTest::lmer(stereotypeDispersion ~ competenceMean + (1|state), data=data))
+summary(lmerTest::lmer(stereotypeDispersion ~ warmthMean + (1|state), data=data))
+
+# subset longitudinal data.
+longitdata <- alldata[ which(alldata$level=='longit'),]
+longit_high <- longitdata[ which(longitdata$post==0),]
+longit_college <- longitdata[ which(longitdata$post==1),]
+longit_diff <- na.omit(longitdata[c(8:10)])
+
+# correlation test.
+cor.test(longit_high$stereotypeDispersion, longit_high$competenceMean)
+cor.test(longit_high$stereotypeDispersion, longit_high$warmthMean)
+cor.test(longit_college$stereotypeDispersion, longit_college$competenceMean)
+cor.test(longit_college$stereotypeDispersion, longit_college$warmthMean)
+cor.test(as.numeric(longit_diff$diffDispersion), as.numeric(longit_diff$diffWarmth))
+cor.test(as.numeric(longit_diff$diffDispersion), as.numeric(longit_diff$diffCompetence))
+
+# random effects.
+summary(lmerTest::lmer(stereotypeDispersion ~ competenceMean + (1|id), data=longitdata))
+summary(lmerTest::lmer(stereotypeDispersion ~ warmthMean + (1|id), data=longitdata))
+
+
+
+#============================================#
+# positivity plots.
+# visualization in Python.
+cd Desktop
+
+# packages.
+import pandas as pd
+import seaborn as sns
+
+# read data.
+df=pd.read_excel('data review.xlsx',sheet_name=1)
+nation_df = df.loc[df['level']=='country']
+indiv_df = df.loc[df['level']=='individual']
+state_df = indiv_df.groupby(['state']).mean()
+longit_df = df.loc[df['level']=='longit']
+highsch_df = df.loc[df['post']==0]
+college_df = df.loc[df['post']==1]
+
+# scatterplot matrix.
+sns.set(style="ticks")
+
+g=sns.pairplot(nation_df.iloc[:,2:5])
+g.fig.suptitle("study 1 -- 46 nations")
+
+g=sns.pairplot(state_df.iloc[:,0:3])
+g.fig.suptitle("study 2 -- 50 states")
+
+g=sns.pairplot(indiv_df.iloc[:,2:5])
+g.fig.suptitle("study 2 -- 1502 individuals")
+
+g=sns.pairplot(highsch_df.iloc[:,2:5])
+g.fig.suptitle("study 3 -- in high school")
+
+g=sns.pairplot(college_df.iloc[:,2:5])
+g.fig.suptitle("study 3 -- in college")
+
+
+
+#============================================#
+# ingroup favoritism stats.
+# longitudinal datasets.
+
+# read csv.
+alldata <- read.csv('test.csv') # ingroupfav
+colnames(alldata)[1] <- gsub('^...','',colnames(alldata)[1])
+# whites rate whites.
+subdata <- alldata[which(alldata$race=='W'),]
+a=lmerTest::lmer(Wwarm~diversity65+(1|post),data=subdata)
+b=lmerTest::lmer(Wcompetent~diversity65+(1|post),data=subdata)
+
+# asisans rate asians.
+subdata <- alldata[which(alldata$race=='A'),]
+a=lmerTest::lmer(Awarm~diversity65+(1|post),data=subdata)
+b=lmerTest::lmer(Acompetent~diversity65+(1|post),data=subdata)
+
+# blacks rate blacks.
+subdata <- alldata[which(alldata$race=='B'),]
+a=lmerTest::lmer(Bwarm~diversity65+(1|post),data=subdata)
+b=lmerTest::lmer(Bcompetent~diversity65+(1|post),data=subdata)
+
+# hispanics rate hispanics.
+subdata <- alldata[which(alldata$race=='H'),]
+a=lmerTest::lmer(Hwarm~diversity65+(1|post),data=subdata)
+b=lmerTest::lmer(Hcompetent~diversity65+(1|post),data=subdata)
+
+
+
+
+
+#============================================#
+# group dynamic.
+
+# study 2.
+# stereotype dispersion, by immigrant groups.
+N = 940, single ancestry group selected.
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+df=pd.read_excel('data review.xlsx',sheet_name=3)
+a=df.groupby(['single_ancestry']).mean()['Meandist']
+b=a.sort_values()
+sns.despine(offset=10, trim=False)
+ax=sns.violinplot(x='single_ancestry',y='Meandist',order=b.index.values, data=df)
+
+# dispersion and diversity, by immigrant groups.
+g=sns.relplot(x='subj_diverse',y='Meandist',col='single_ancestry',kind='line',col_wrap=6,data=df)
+
+
+# study 3.
+# stereotype dispersion, by race.
+df=pd.read_excel('data review.xlsx',sheet_name=4)
+a=df.groupby(['race']).mean()['dispersion']
+b=a.sort_values()
+sns.despine(offset=10, trim=False)
+ax=sns.violinplot(x='race',y='dispersion',order=b.index.values, data=df)
+
+# dispersion and diversity, by race.
+sns.lmplot(x='diversity65',y='dispersion',col='race',col_wrap=2,data=df)
+
+
+
+
+
+#============================================#
+# accuracy.
+# statistics in R.
+getwd()
+setwd("C:/Users/xb2/Desktop")
+
+# packages.
+library(data.table)
+library(lmerTest)
+
+# read csv.
+alldata <- read.csv('test.csv') # positivity spreadsheet
+colnames(alldata)[1] <- gsub('^...','',colnames(alldata)[1])
+
+# cor.
+cor.test(alldata$subj_diverse,alldata$Herfindahl)
+cor.test(alldata$subj_unequal,alldata$GINI)
+
+
+# figure.
+# read data.
+df=pd.read_excel('data review.xlsx',sheet_name=5)
+dfa=df.loc[df['rescale_Herf']==1]
+# Initialize the FacetGrid object
+pal = sns.cubehelix_palette(10, rot=-.25, light=.7)
+g = sns.FacetGrid(dfa, row="State", hue="State", aspect=15, height=.5, palette=pal)
+# Draw the densities in a few steps
+g.map(sns.kdeplot, "subj_diverse", clip_on=False, shade=True, alpha=1, lw=1.5
+, bw=.2)
+g.map(sns.kdeplot, "subj_diverse", clip_on=False, color="w", lw=2, bw=.2)
+g.map(plt.axhline, y=0, lw=2, clip_on=False)
+# Define and use a simple function to label the plot in axes coordinates
+def label(x, color, label):
+    ax = plt.gca()
+    ax.text(0, .2, label, fontweight="bold", color=color,
+            ha="left", va="center", transform=ax.transAxes)
+g.map(label, "subj_diverse")
+# Set the subplots to overlap
+g.fig.subplots_adjust(hspace=-.25)
+# Remove axes details that don't play well with overlap
+g.set_titles("")
+g.set(yticks=[])
+g.despine(bottom=True, left=True)
+
+# summary statistics of accuracy.
+dfa=df.loc[df['rescale_Herf']==5]
+ax = sns.boxplot(x="State", y="sub-obj", data=dfa)
+ax = sns.swarmplot(x="State", y="sub-obj", data=dfa, color=".25")
+
+
+# in R.
+summary(alldata$sub.obj)
+sd(alldata$sub.obj)
+summary(lmerTest::lmer(sub.obj ~ ladder + (1|State), data=alldata)) #.068***
+summary(lmerTest::lmer(sub.obj ~ livingarea + (1|State), data=alldata)) # -.171***
+
+a=lmerTest::lmer(Meandist ~ sub.obj + (1|State), data=alldata)
+b=lmerTest::lmer(satisfied ~ sub.obj + (1|State), data=alldata)
+c=lmerTest::lmer(satisfied ~ sub.obj + (1|State), data=alldata)
+d=lmerTest::lmer(frequentcontact ~ sub.obj + (1|State), data=alldata)
+d=lmerTest::lmer(sameraceneighbor ~ sub.obj + (1|State), data=alldata)
+summary(a/b/c/d)
+confint(a/b/c/d)
+
+
+
+
+
+
+#============================================#
+# effect size.
+# statistics in R.
+getwd()
+setwd("C:/Users/xb2/Desktop")
+
+# packages.
+library(data.table)
+library(lmerTest)
+
+
+## study 2.
+# read csv.
+alldata <- read.csv('test.csv') # effectsize2 spreadsheet
+colnames(alldata)[1] <- gsub('^...','',colnames(alldata)[1])
+
+# transform.
+dt2 = setDT(alldata)
+dt2[, ID := as.factor(ID)]
+dt2[, State := as.factor(State)]
+dt2 = dt2[gender != 3]
+dt2[, gender := factor(gender)]
+contrasts(dt2$gender) = c(-0.5, 0.5) #male, female
+dt2[, ancestry_first := factor(ancestry_first)]
+dt2[, marital := factor(marital)]
+dt2[, Herfindahl.ctr := scale(Herfindahl, center = T, scale = T)] # z-score
+dt2[, subj_diverse.ctr := scale(subj_diverse, center = T, scale = T)] # z-score
+dt2[, GDP.ctr := scale(GDP, center = T, scale = F)]
+dt2[, GINI.ctr := scale(GINI, center = T, scale = F)]
+dt2[, age.ctr := scale(age, center = T, scale = F)]
+dt2[, education.ctr := scale(education, center = T, scale = F)]
+dt2[, ladder.ctr := scale(ladder, center = T, scale = F)]
+dt2[, frequentcontact.ctr := scale(frequentcontact, center = T, scale = F)]
+dt2[, income.ctr := scale(income, center = T, scale = F)]
+dt2[, yearslive.ctr := scale(yearslive, center = T, scale = F)]
+dt2[, livingarea.ctr := scale(livingarea, center = T, scale = F)]
+summary(dt2) # check variable type.
+
+# MLM regression: state objective diversity.
+fm1 = lmerTest::lmer(Meandist ~ Herfindahl.ctr 
+								+ GDP.ctr + GINI.ctr + (1|State),data=dt2)
+								
+# MLM regression: individual perceived diversity.
+fm2 = lmerTest::lmer(Meandist ~ subj_diverse.ctr
+								+ age.ctr + gender + education.ctr + ladder.ctr + 
+								+ income.ctr + yearslive.ctr + livingarea.ctr
+								+ frequentcontact.ctr + ancestry_first  +
+								(1 | State),data=dt2)
+								
+fm3 = lmerTest::lmer(Meandist ~ subj_diverse.ctr
+								+ age.ctr + gender + education.ctr + ladder.ctr + 
+								+ income.ctr + yearslive.ctr + livingarea.ctr
+								+ frequentcontact.ctr + ancestry_first  +
+								Herfindahl.ctr + GDP.ctr + GINI.ctr+
+								(1 | State),data=dt2)
+
+
+## study 3.
+# read csv.
+alldata <- read.csv('test.csv') # effectsize3 spreadsheet
+colnames(alldata)[1] <- gsub('^...','',colnames(alldata)[1])
+
+# transform.
+dt3=setDT(alldata)
+dt3[, income.ctr := scale(income, center = T, scale = F)]
+dt3[, diversity65.ctr := scale(diversity65, center = T, scale = T)] # z-score.
+# multi-level, robust.
+summary(lmerTest::lmer(dispersion ~ post * diversity65.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+# race, gender, income, robustness.
+summary(lmerTest::lmer(dispersion ~ post * diversity65.ctr + race + sex + income.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+# robust check.
+dt3[, diversity64.ctr := scale(diversity64, center = T, scale = T)] # z-score.
+summary(lmerTest::lmer(dispersion ~ post * diversity64.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(dispersion ~ post * diversity64.ctr + race + sex + income.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+dt3[, diversity63.ctr := scale(diversity63, center = T, scale = T)] # z-score.
+summary(lmerTest::lmer(dispersion ~ post * diversity63.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(dispersion ~ post * diversity63.ctr + race + sex + income.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+dt3[, diversity62.ctr := scale(diversity62, center = T, scale = T)] # z-score.
+summary(lmerTest::lmer(dispersion ~ post * diversity62.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(dispersion ~ post * diversity62.ctr + race + sex + income.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+dt3[, diversity61.ctr := scale(diversity61, center = T, scale = T)] # z-score.
+summary(lmerTest::lmer(dispersion ~ post * diversity61.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+summary(lmerTest::lmer(dispersion ~ post * diversity61.ctr + race + sex + income.ctr + (1 | highschoolstate) + (1 | subjectid), data=dt3))
+
+
+
+
+
+#============================================#
+# ethnicity of close friends.
+# statistics in R.
+getwd()
+setwd("C:/Users/xb2/Desktop")
+
+# packages.
+library(data.table)
+library(lmerTest)
+
+# read csv.
+alldata <- read.csv('test.csv') # closefriends spreadsheet
+colnames(alldata)[1] <- gsub('^...','',colnames(alldata)[1])
+
+# subset wave 5 data.
+wave5data <- alldata[ which(alldata$post==1),]
+
+# indicator variable: 1 cross-race, 0 same-race.
+fm1=lm(dispersion ~ as.factor(closefriend) + diversity65, data=wave5data)
+fm2=lm(average_warm ~ as.factor(closefriend) + diversity65, data=wave5data)
+fm3=lm(average_comp ~ as.factor(closefriend) + diversity65, data=wave5data)
